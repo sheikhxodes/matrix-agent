@@ -54,25 +54,24 @@ pip install google-adk google-genai
 export GOOGLE_API_KEY="your-key"
 
 # Run CLI
-cd matrix_agent
 python main.py
 ```
 
 ## Project Structure
 
 ```
-matrix_agent/
+matrix-agent/
+├── main.py               # CLI entry point
+├── pyproject.toml
 ├── agents/
 │   ├── __init__.py
 │   └── coordinator.py    # Main coordinator + specialists
-├── tools/
-│   ├── __init__.py
-│   ├── code_tools.py     # Web development tools
-│   ├── ppt_tools.py      # Presentation tools
-│   ├── research_tools.py # Research & analysis tools
-│   └── multimodal_tools.py # Media processing tools
-├── main.py               # CLI entry point
-└── pyproject.toml
+└── tools/
+    ├── __init__.py
+    ├── code_tools.py     # Web development tools
+    ├── ppt_tools.py      # Presentation tools
+    ├── research_tools.py # Research & analysis tools
+    └── multimodal_tools.py # Media processing tools
 ```
 
 ## License
