@@ -1,0 +1,25 @@
+{
+  "$schema": "https://railway.com/railway-template.schema.json",
+  "name": "Matrix Agent",
+  "description": "General-purpose AI Agent capable of completing complex, long-horizon tasks. Supported by a multi-agent system with multi-step planning, flexible task decomposition, and parallel sub-task execution. Built with Google ADK and Gemini.",
+  "icon": "https://raw.githubusercontent.com/sheikhxodes/matrix-agent/main/icon.svg",
+  "tags": ["ai", "agent", "gemini", "google-adk", "multi-agent", "fastapi"],
+  "services": [
+    {
+      "name": "matrix-agent",
+      "source": {
+        "repo": "sheikhxodes/matrix-agent"
+      },
+      "variables": {
+        "GOOGLE_API_KEY": {
+          "description": "Google AI API Key for Gemini",
+          "required": true
+        }
+      },
+      "deploy": {
+        "healthcheckPath": "/health",
+        "startCommand": "uvicorn main:app --host 0.0.0.0 --port $PORT"
+      }
+    }
+  ]
+}
