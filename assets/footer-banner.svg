@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 60">
+  <!-- Left line -->
+  <line x1="0" y1="30" x2="220" y2="30" stroke="#1a1a1a" stroke-width="3"/>
+  
+  <!-- Center logo box -->
+  <rect x="230" y="10" width="140" height="40" rx="4" fill="#E31937"/>
+  <text x="300" y="38" font-family="Arial, sans-serif" font-size="22" font-weight="bold" fill="white" text-anchor="middle" letter-spacing="3">MATRIX</text>
+  
+  <!-- Right line -->
+  <line x1="380" y1="30" x2="600" y2="30" stroke="#1a1a1a" stroke-width="3"/>
+</svg>
