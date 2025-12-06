@@ -1,8 +1,21 @@
-# Matrix Agent
+<p align="center">
+  <img src="assets/logo.svg" alt="Matrix Agent" width="300">
+</p>
 
-General-purpose AI agent built with Google ADK for complex, long-horizon tasks.
+<h1 align="center">Matrix Agent</h1>
 
-[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/template/new?template=https://github.com/sheikhxodes/matrix-agent)
+<p align="center">
+  <strong>General-purpose AI Agent for complex, long-horizon tasks</strong><br>
+  Built with Google ADK • Powered by Gemini • By <a href="https://t.me/likhonsheikh">Likhon Sheikh</a>
+</p>
+
+<p align="center">
+  <a href="https://railway.com/template/new?template=https://github.com/sheikhxodes/matrix-agent">
+    <img src="https://railway.com/button.svg" alt="Deploy on Railway">
+  </a>
+</p>
+
+---
 
 ## Features
 
@@ -14,6 +27,20 @@ General-purpose AI agent built with Google ADK for complex, long-horizon tasks.
 | **Multimodal** | Image/audio/video understanding and generation |
 | **Browser** | Automation via Chrome DevTools Protocol (CDP) |
 | **MCP Integration** | Chrome DevTools, Playwright, Railway |
+
+## API Compatibility
+
+| API | Endpoint | Description |
+|-----|----------|-------------|
+| **Anthropic** (Recommended) | `/anthropic/v1/messages` | Full Messages API with thinking blocks |
+| **OpenAI** | `/v1/chat/completions` | Chat Completions compatible |
+| **Code Assistant** | `/v1/code` | Specialized code understanding |
+
+### Advanced Features
+- **Interleaved Thinking** - `<think>...</think>` blocks preserved
+- **Tool Use** - Pass tools in requests
+- **Prompt Caching** - Automatic caching for repeated requests
+- **Code Understanding** - explain, review, refactor, debug, complete
 
 ## Architecture
 
@@ -29,76 +56,73 @@ General-purpose AI agent built with Google ADK for complex, long-horizon tasks.
     └──────────┘ └─────────┘ └────────┘ └────────┘ └────────┘
 ```
 
-## Interleaved Thinking
+## Quick Start
 
-Uses `<think>...</think>` tags to preserve reasoning in conversation history:
-
-```
-<think>
-Breaking down the task:
-1. User wants a SaaS dashboard
-2. Need auth → use Supabase
-3. Need payments → integrate Stripe
-</think>
-
-I'll build your SaaS dashboard with the following plan...
-```
-
-## Quick Deploy
-
-### Railway (Recommended)
+### Deploy on Railway
 [![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/template/new?template=https://github.com/sheikhxodes/matrix-agent)
 
-### Environment Variables
-Set `GOOGLE_API_KEY` in your deployment environment.
-
-## Local Installation
+### Local Installation
 
 ```bash
+# Clone
+git clone https://github.com/sheikhxodes/matrix-agent.git
+cd matrix-agent
+
+# Install
 pip install -r requirements.txt
-```
 
-## Usage
-
-```bash
 # Set API key
 export GOOGLE_API_KEY="your-key"
 
-# Run CLI
-python main.py
-
-# Run API server
+# Run
 uvicorn main:app --reload
+```
+
+## Usage Examples
+
+### Anthropic API (Recommended)
+```bash
+curl -X POST http://localhost:8000/anthropic/v1/messages \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "matrix-agent",
+    "messages": [{"role": "user", "content": "Build a React dashboard"}],
+    "max_tokens": 4096
+  }'
+```
+
+### OpenAI API
+```bash
+curl -X POST http://localhost:8000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "matrix-agent",
+    "messages": [{"role": "user", "content": "Hello!"}]
+  }'
+```
+
+### Code Assistant
+```bash
+curl -X POST http://localhost:8000/v1/code \
+  -H "Content-Type: application/json" \
+  -d '{
+    "code": "def factorial(n): return 1 if n <= 1 else n * factorial(n-1)",
+    "task": "explain",
+    "language": "python"
+  }'
 ```
 
 ## API Endpoints
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/health` | GET | Health check |
+| `/anthropic/v1/messages` | POST | Anthropic Messages API |
+| `/v1/chat/completions` | POST | OpenAI Chat API |
+| `/v1/code` | POST | Code assistant |
+| `/v1/models` | GET | List models |
 | `/chat` | POST | Quick chat |
-| `/sessions` | POST/GET | Create/list sessions |
-| `/sessions/{id}` | GET/PUT/DELETE | Session CRUD |
-| `/sessions/{id}/messages` | POST/GET | Messages CRUD |
-
-## Project Structure
-
-```
-matrix-agent/
-├── main.py               # FastAPI + CLI entry point
-├── Dockerfile            # Container config
-├── railway.toml          # Railway deployment config
-├── mcp.json              # MCP servers config
-├── agents/
-│   ├── coordinator.py    # Main coordinator + specialists
-│   └── browser_agent.py  # CDP browser automation
-└── tools/
-    ├── code_tools.py     # Web development tools
-    ├── ppt_tools.py      # Presentation tools
-    ├── research_tools.py # Research & analysis tools
-    ├── multimodal_tools.py # Media processing tools
-    └── chrome_devtools_tools.py # Browser automation
-```
+| `/sessions` | POST/GET | Session management |
+| `/health` | GET | Health check |
 
 ## MCP Servers
 
@@ -111,6 +135,16 @@ matrix-agent/
   }
 }
 ```
+
+## Documentation
+
+📚 [Full Documentation](https://sheikhxodes.github.io/matrix-agent)
+
+## Author
+
+**Likhon Sheikh**
+- Telegram: [@likhonsheikh](https://t.me/likhonsheikh)
+- GitHub: [@sheikhxodes](https://github.com/sheikhxodes)
 
 ## License
 
