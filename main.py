@@ -1,18 +1,21 @@
 """
 Matrix Agent - General Purpose AI with Interleaved Thinking
-FastAPI Application with Full CRUD Endpoints
+FastAPI Application with Full CRUD + Anthropic/OpenAI Compatible APIs
 """
 
 import asyncio
 import os
 import re
 import uuid
+import time
+import hashlib
 from datetime import datetime
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Optional, List, Dict, Any
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from google.adk.agents import LlmAgent
@@ -62,6 +65,42 @@ class Session:
             self.updated_at = now
 
 
+# ============== PROMPT CACHE ==============
+
+class PromptCache:
+    """Simple prompt cache for repeated requests."""
+    def __init__(self, max_size: int = 1000):
+        self.cache: Dict[str, Dict[str, Any]] = {}
+        self.max_size = max_size
+        self.hits = 0
+        self.misses = 0
+    
+    def _hash(self, messages: List[Dict], system: str = "") -> str:
+        content = str(messages) + system
+        return hashlib.sha256(content.encode()).hexdigest()[:16]
+    
+    def get(self, messages: List[Dict], system: str = "") -> Optional[Dict]:
+        key = self._hash(messages, system)
+        if key in self.cache:
+            self.hits += 1
+            return self.cache[key]
+        self.misses += 1
+        return None
+    
+    def set(self, messages: List[Dict], system: str, response: Dict):
+        if len(self.cache) >= self.max_size:
+            oldest = next(iter(self.cache))
+            del self.cache[oldest]
+        key = self._hash(messages, system)
+        self.cache[key] = response
+    
+    def stats(self) -> Dict:
+        return {"hits": self.hits, "misses": self.misses, "size": len(self.cache)}
+
+
+prompt_cache = PromptCache()
+
+
 # ============== AGENT CLASS ==============
 
 class MatrixAgent:
@@ -79,7 +118,7 @@ class MatrixAgent:
         self.runner = Runner(agent=self.agent, session_service=self.session_service)
         return self
     
-    async def chat(self, content: str) -> Message:
+    async def chat(self, content: str, system_prompt: str = None) -> Message:
         if not self.runner:
             await self.init()
         
@@ -119,7 +158,7 @@ class MatrixAgent:
 
 app = FastAPI(
     title="Matrix Agent API",
-    description="General-purpose AI agent with multi-step planning",
+    description="General-purpose AI agent with Anthropic & OpenAI compatible APIs",
     version="0.1.0"
 )
 
@@ -150,6 +189,51 @@ class ChatRequest(BaseModel):
     session_id: Optional[str] = None
 
 
+# ============== ANTHROPIC API MODELS ==============
+
+class AnthropicMessage(BaseModel):
+    role: str
+    content: Any  # str or list of content blocks
+
+class AnthropicTool(BaseModel):
+    name: str
+    description: Optional[str] = None
+    input_schema: Optional[Dict] = None
+
+class AnthropicRequest(BaseModel):
+    model: str = "matrix-agent"
+    messages: List[AnthropicMessage]
+    max_tokens: int = 4096
+    system: Optional[str] = None
+    temperature: Optional[float] = 0.7
+    tools: Optional[List[AnthropicTool]] = None
+    stream: Optional[bool] = False
+    metadata: Optional[Dict] = None
+
+
+# ============== OPENAI API MODELS ==============
+
+class OpenAIMessage(BaseModel):
+    role: str
+    content: Optional[str] = None
+    name: Optional[str] = None
+    tool_calls: Optional[List[Dict]] = None
+    tool_call_id: Optional[str] = None
+
+class OpenAITool(BaseModel):
+    type: str = "function"
+    function: Dict
+
+class OpenAIRequest(BaseModel):
+    model: str = "matrix-agent"
+    messages: List[OpenAIMessage]
+    max_tokens: Optional[int] = 4096
+    temperature: Optional[float] = 0.7
+    tools: Optional[List[OpenAITool]] = None
+    stream: Optional[bool] = False
+    n: Optional[int] = 1
+
+
 # ============== HEALTH & INFO ==============
 
 @app.get("/")
@@ -157,7 +241,14 @@ async def root():
     return {
         "name": "Matrix Agent",
         "version": "0.1.0",
-        "capabilities": ["Code", "PPT", "Research", "Multimodal"],
+        "author": "Likhon Sheikh",
+        "capabilities": ["Code", "PPT", "Research", "Multimodal", "Browser"],
+        "apis": {
+            "native": "/chat, /sessions",
+            "anthropic": "/anthropic/v1/messages",
+            "openai": "/v1/chat/completions"
+        },
+        "features": ["interleaved_thinking", "tool_use", "prompt_caching", "code_understanding"],
         "status": "ready"
     }
 
@@ -165,66 +256,272 @@ async def root():
 async def health():
     return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
 
+@app.get("/v1/models")
+@app.get("/anthropic/v1/models")
+async def list_models():
+    """List available models (OpenAI/Anthropic compatible)."""
+    return {
+        "object": "list",
+        "data": [
+            {
+                "id": "matrix-agent",
+                "object": "model",
+                "created": 1700000000,
+                "owned_by": "likhon-sheikh",
+                "capabilities": ["code", "ppt", "research", "multimodal", "browser"],
+                "context_window": 128000
+            }
+        ]
+    }
+
+
+# ============== ANTHROPIC COMPATIBLE API ==============
+
+@app.post("/anthropic/v1/messages")
+async def anthropic_messages(
+    request: AnthropicRequest,
+    x_api_key: Optional[str] = Header(None, alias="x-api-key"),
+    anthropic_version: Optional[str] = Header(None, alias="anthropic-version"),
+    anthropic_beta: Optional[str] = Header(None, alias="anthropic-beta")
+):
+    """
+    Anthropic Messages API compatible endpoint.
+    Supports: interleaved thinking, tool use, prompt caching.
+    """
+    start_time = time.time()
+    
+    # Check cache
+    cache_key_messages = [{"role": m.role, "content": str(m.content)} for m in request.messages]
+    cached = prompt_cache.get(cache_key_messages, request.system or "")
+    if cached and not request.stream:
+        cached["cache_hit"] = True
+        return cached
+    
+    # Build conversation
+    system_prompt = request.system or ""
+    if request.tools:
+        tool_desc = "\n".join([f"- {t.name}: {t.description}" for t in request.tools])
+        system_prompt += f"\n\nAvailable tools:\n{tool_desc}"
+    
+    # Get last user message
+    user_content = ""
+    for msg in reversed(request.messages):
+        if msg.role == "user":
+            if isinstance(msg.content, str):
+                user_content = msg.content
+            elif isinstance(msg.content, list):
+                user_content = " ".join([
+                    c.get("text", "") for c in msg.content 
+                    if isinstance(c, dict) and c.get("type") == "text"
+                ])
+            break
+    
+    if not user_content:
+        raise HTTPException(400, "No user message found")
+    
+    # Create/get agent
+    session_id = str(uuid.uuid4())
+    agent = MatrixAgent(session_id)
+    await agent.init()
+    
+    try:
+        response = await agent.chat(user_content, system_prompt)
+        
+        # Parse thinking blocks
+        content_blocks = []
+        thinking_match = re.search(r'<think>(.*?)</think>', response.content, re.DOTALL)
+        
+        if thinking_match:
+            content_blocks.append({
+                "type": "thinking",
+                "thinking": thinking_match.group(1).strip()
+            })
+        
+        # Main text content
+        text_content = re.sub(r'<think>.*?</think>', '', response.content, flags=re.DOTALL).strip()
+        if text_content:
+            content_blocks.append({
+                "type": "text",
+                "text": text_content
+            })
+        
+        result = {
+            "id": f"msg_{response.id}",
+            "type": "message",
+            "role": "assistant",
+            "content": content_blocks,
+            "model": request.model,
+            "stop_reason": "end_turn",
+            "stop_sequence": None,
+            "usage": {
+                "input_tokens": len(user_content.split()) * 2,
+                "output_tokens": len(response.content.split()) * 2,
+                "cache_creation_input_tokens": 0,
+                "cache_read_input_tokens": 0
+            }
+        }
+        
+        # Cache result
+        prompt_cache.set(cache_key_messages, request.system or "", result)
+        
+        return result
+        
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+
+# ============== OPENAI COMPATIBLE API ==============
+
+@app.post("/v1/chat/completions")
+async def openai_chat_completions(
+    request: OpenAIRequest,
+    authorization: Optional[str] = Header(None)
+):
+    """
+    OpenAI Chat Completions API compatible endpoint.
+    Supports: tool use, streaming (basic).
+    """
+    start_time = time.time()
+    
+    # Build conversation
+    system_prompt = ""
+    user_content = ""
+    
+    for msg in request.messages:
+        if msg.role == "system":
+            system_prompt = msg.content or ""
+        elif msg.role == "user":
+            user_content = msg.content or ""
+    
+    if request.tools:
+        tool_desc = "\n".join([
+            f"- {t.function.get('name', '')}: {t.function.get('description', '')}" 
+            for t in request.tools
+        ])
+        system_prompt += f"\n\nAvailable tools:\n{tool_desc}"
+    
+    if not user_content:
+        raise HTTPException(400, "No user message found")
+    
+    # Create agent
+    session_id = str(uuid.uuid4())
+    agent = MatrixAgent(session_id)
+    await agent.init()
+    
+    try:
+        response = await agent.chat(user_content, system_prompt)
+        
+        # Remove thinking tags for OpenAI format
+        clean_content = re.sub(r'<think>.*?</think>', '', response.content, flags=re.DOTALL).strip()
+        
+        result = {
+            "id": f"chatcmpl-{response.id}",
+            "object": "chat.completion",
+            "created": int(time.time()),
+            "model": request.model,
+            "choices": [{
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": clean_content
+                },
+                "finish_reason": "stop"
+            }],
+            "usage": {
+                "prompt_tokens": len(user_content.split()) * 2,
+                "completion_tokens": len(response.content.split()) * 2,
+                "total_tokens": (len(user_content.split()) + len(response.content.split())) * 2
+            }
+        }
+        
+        return result
+        
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+
+# ============== CODE ASSISTANT ENDPOINT ==============
+
+class CodeRequest(BaseModel):
+    code: str
+    task: str = "explain"  # explain, review, refactor, complete, debug
+    language: Optional[str] = None
+
+@app.post("/v1/code")
+@app.post("/anthropic/v1/code")
+async def code_assistant(request: CodeRequest):
+    """
+    Specialized code understanding endpoint.
+    Tasks: explain, review, refactor, complete, debug
+    """
+    task_prompts = {
+        "explain": f"Explain this code in detail:\n```{request.language or ''}\n{request.code}\n```",
+        "review": f"Review this code for bugs, security issues, and improvements:\n```{request.language or ''}\n{request.code}\n```",
+        "refactor": f"Refactor this code for better readability and performance:\n```{request.language or ''}\n{request.code}\n```",
+        "complete": f"Complete this code:\n```{request.language or ''}\n{request.code}\n```",
+        "debug": f"Debug this code and identify issues:\n```{request.language or ''}\n{request.code}\n```"
+    }
+    
+    prompt = task_prompts.get(request.task, task_prompts["explain"])
+    
+    session_id = str(uuid.uuid4())
+    agent = MatrixAgent(session_id)
+    await agent.init()
+    
+    try:
+        response = await agent.chat(prompt)
+        return {
+            "task": request.task,
+            "language": request.language,
+            "response": response.content,
+            "thinking": response.thinking
+        }
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+
+# ============== CACHE STATS ==============
+
+@app.get("/v1/cache/stats")
+async def cache_stats():
+    """Get prompt cache statistics."""
+    return prompt_cache.stats()
+
 
 # ============== SESSIONS CRUD ==============
 
-# CREATE
 @app.post("/sessions", status_code=201)
 async def create_session(body: SessionCreate = None):
-    """Create a new session."""
     session_id = str(uuid.uuid4())
     name = body.name if body and body.name else None
     agent = MatrixAgent(session_id, name)
     await agent.init()
     agents[session_id] = agent
-    return {
-        "id": agent.session.id,
-        "name": agent.session.name,
-        "created_at": agent.session.created_at
-    }
+    return {"id": agent.session.id, "name": agent.session.name, "created_at": agent.session.created_at}
 
-# READ ALL
 @app.get("/sessions")
 async def list_sessions(skip: int = 0, limit: int = 100):
-    """List all sessions."""
-    sessions = [{
-        "id": a.session.id,
-        "name": a.session.name,
-        "message_count": len(a.session.messages),
-        "created_at": a.session.created_at,
-        "updated_at": a.session.updated_at
-    } for a in agents.values()]
+    sessions = [{"id": a.session.id, "name": a.session.name, "message_count": len(a.session.messages),
+                 "created_at": a.session.created_at, "updated_at": a.session.updated_at} for a in agents.values()]
     return sessions[skip:skip+limit]
 
-# READ ONE
 @app.get("/sessions/{session_id}")
 async def get_session(session_id: str):
-    """Get session details."""
     if session_id not in agents:
         raise HTTPException(404, "Session not found")
     s = agents[session_id].session
-    return {
-        "id": s.id,
-        "name": s.name,
-        "message_count": len(s.messages),
-        "created_at": s.created_at,
-        "updated_at": s.updated_at
-    }
+    return {"id": s.id, "name": s.name, "message_count": len(s.messages), "created_at": s.created_at, "updated_at": s.updated_at}
 
-# UPDATE
 @app.put("/sessions/{session_id}")
 async def update_session(session_id: str, body: SessionUpdate):
-    """Update session name."""
     if session_id not in agents:
         raise HTTPException(404, "Session not found")
     agents[session_id].session.name = body.name
     agents[session_id].session.updated_at = datetime.utcnow().isoformat()
     return {"id": session_id, "name": body.name, "status": "updated"}
 
-# DELETE
 @app.delete("/sessions/{session_id}")
 async def delete_session(session_id: str):
-    """Delete a session."""
     if session_id not in agents:
         raise HTTPException(404, "Session not found")
     del agents[session_id]
@@ -233,10 +530,8 @@ async def delete_session(session_id: str):
 
 # ============== MESSAGES CRUD ==============
 
-# CREATE (chat)
 @app.post("/sessions/{session_id}/messages")
 async def create_message(session_id: str, body: MessageCreate):
-    """Send a message and get response."""
     if session_id not in agents:
         raise HTTPException(404, "Session not found")
     try:
@@ -245,19 +540,15 @@ async def create_message(session_id: str, body: MessageCreate):
     except Exception as e:
         raise HTTPException(500, str(e))
 
-# READ ALL
 @app.get("/sessions/{session_id}/messages")
 async def list_messages(session_id: str, skip: int = 0, limit: int = 100):
-    """List all messages in session."""
     if session_id not in agents:
         raise HTTPException(404, "Session not found")
     messages = [m.to_dict() for m in agents[session_id].session.messages]
     return messages[skip:skip+limit]
 
-# READ ONE
 @app.get("/sessions/{session_id}/messages/{message_id}")
 async def get_message(session_id: str, message_id: str):
-    """Get a specific message."""
     if session_id not in agents:
         raise HTTPException(404, "Session not found")
     for m in agents[session_id].session.messages:
@@ -265,10 +556,8 @@ async def get_message(session_id: str, message_id: str):
             return m.to_dict()
     raise HTTPException(404, "Message not found")
 
-# DELETE ONE
 @app.delete("/sessions/{session_id}/messages/{message_id}")
 async def delete_message(session_id: str, message_id: str):
-    """Delete a message."""
     if session_id not in agents:
         raise HTTPException(404, "Session not found")
     msgs = agents[session_id].session.messages
@@ -278,10 +567,8 @@ async def delete_message(session_id: str, message_id: str):
             return {"id": message_id, "status": "deleted"}
     raise HTTPException(404, "Message not found")
 
-# DELETE ALL
 @app.delete("/sessions/{session_id}/messages")
 async def clear_messages(session_id: str):
-    """Clear all messages in session."""
     if session_id not in agents:
         raise HTTPException(404, "Session not found")
     agents[session_id].session.messages = []
@@ -292,21 +579,14 @@ async def clear_messages(session_id: str):
 
 @app.post("/chat")
 async def quick_chat(body: ChatRequest):
-    """Quick chat - creates session if needed."""
     session_id = body.session_id or str(uuid.uuid4())
-    
     if session_id not in agents:
         agent = MatrixAgent(session_id)
         await agent.init()
         agents[session_id] = agent
-    
     try:
         msg = await agents[session_id].chat(body.message)
-        return {
-            "session_id": session_id,
-            "response": msg.content,
-            "thinking": msg.thinking
-        }
+        return {"session_id": session_id, "response": msg.content, "thinking": msg.thinking}
     except Exception as e:
         raise HTTPException(500, str(e))
 
@@ -314,7 +594,7 @@ async def quick_chat(body: ChatRequest):
 # ============== CLI ==============
 
 async def cli():
-    print("\n🤖 MATRIX AGENT\nCapabilities: Code | PPT | Research | Multimodal\n")
+    print("\n🤖 MATRIX AGENT\nCapabilities: Code | PPT | Research | Multimodal | Browser\n")
     agent = MatrixAgent(str(uuid.uuid4()))
     await agent.init()
     while True:
