@@ -1,0 +1,73 @@
+site_name: Matrix Agent
+site_description: General-purpose AI Agent with multi-step planning and interleaved thinking
+site_url: https://sheikhxodes.github.io/matrix-agent
+repo_url: https://github.com/sheikhxodes/matrix-agent
+repo_name: sheikhxodes/matrix-agent
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: deep purple
+      accent: purple
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: deep purple
+      accent: purple
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.highlight
+    - content.code.copy
+  icon:
+    repo: fontawesome/brands/github
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [.]
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - admonition
+  - pymdownx.details
+  - attr_list
+  - md_in_html
+  - tables
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Installation: getting-started/installation.md
+    - Quick Start: getting-started/quickstart.md
+    - Configuration: getting-started/configuration.md
+  - Architecture:
+    - Overview: architecture/overview.md
+    - Agents: architecture/agents.md
+    - Tools: architecture/tools.md
+  - API Reference:
+    - Endpoints: api/endpoints.md
+    - Sessions: api/sessions.md
+  - Deployment:
+    - Railway: deployment/railway.md
+    - Docker: deployment/docker.md
+  - MCP Integration:
+    - Overview: mcp/overview.md
+    - Servers: mcp/servers.md
