@@ -1,8 +1,10 @@
 site_name: Matrix Agent
 site_description: General-purpose AI Agent with multi-step planning and interleaved thinking
+site_author: Likhon Sheikh
 site_url: https://sheikhxodes.github.io/matrix-agent
 repo_url: https://github.com/sheikhxodes/matrix-agent
 repo_name: sheikhxodes/matrix-agent
+copyright: Copyright &copy; 2024 Likhon Sheikh
 
 theme:
   name: material
@@ -28,6 +30,16 @@ theme:
     - content.code.copy
   icon:
     repo: fontawesome/brands/github
+
+extra:
+  social:
+    - icon: fontawesome/brands/telegram
+      link: https://t.me/likhonsheikh
+      name: Likhon Sheikh on Telegram
+    - icon: fontawesome/brands/github
+      link: https://github.com/sheikhxodes
+      name: GitHub
+  generator: false
 
 plugins:
   - search
