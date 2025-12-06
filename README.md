@@ -2,6 +2,8 @@
 
 General-purpose AI agent built with Google ADK for complex, long-horizon tasks.
 
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/template/new?template=https://github.com/sheikhxodes/matrix-agent)
+
 ## Features
 
 | Capability | Description |
@@ -10,20 +12,21 @@ General-purpose AI agent built with Google ADK for complex, long-horizon tasks.
 | **PPT** | Beautiful presentations with flexible layouts and PPTX export |
 | **Deep Research** | Web search, APIs, browser automation, data analysis |
 | **Multimodal** | Image/audio/video understanding and generation |
-| **MCP Integration** | Custom and pre-built MCP tools |
+| **Browser** | Automation via Chrome DevTools Protocol (CDP) |
+| **MCP Integration** | Chrome DevTools, Playwright, Railway |
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────┐
-│           MATRIX COORDINATOR                        │
-│     (Multi-step planning + <think> reasoning)       │
-└──────────┬──────────┬──────────┬───────────────────┘
-           │          │          │
-    ┌──────▼───┐ ┌────▼────┐ ┌───▼────┐ ┌────────┐
-    │  Code    │ │   PPT   │ │Research│ │  Multi │
-    │  Agent   │ │  Agent  │ │ Agent  │ │  modal │
-    └──────────┘ └─────────┘ └────────┘ └────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                    MATRIX COORDINATOR                       │
+│          (Multi-step planning + <think> reasoning)          │
+└──────────┬──────────┬──────────┬──────────┬────────────────┘
+           │          │          │          │
+    ┌──────▼───┐ ┌────▼────┐ ┌───▼────┐ ┌───▼────┐ ┌────────┐
+    │  Code    │ │   PPT   │ │Research│ │  Multi │ │Browser │
+    │  Agent   │ │  Agent  │ │ Agent  │ │  modal │ │ Agent  │
+    └──────────┘ └─────────┘ └────────┘ └────────┘ └────────┘
 ```
 
 ## Interleaved Thinking
@@ -41,10 +44,18 @@ Breaking down the task:
 I'll build your SaaS dashboard with the following plan...
 ```
 
-## Installation
+## Quick Deploy
+
+### Railway (Recommended)
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/template/new?template=https://github.com/sheikhxodes/matrix-agent)
+
+### Environment Variables
+Set `GOOGLE_API_KEY` in your deployment environment.
+
+## Local Installation
 
 ```bash
-pip install google-adk google-genai
+pip install -r requirements.txt
 ```
 
 ## Usage
@@ -55,23 +66,50 @@ export GOOGLE_API_KEY="your-key"
 
 # Run CLI
 python main.py
+
+# Run API server
+uvicorn main:app --reload
 ```
+
+## API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/health` | GET | Health check |
+| `/chat` | POST | Quick chat |
+| `/sessions` | POST/GET | Create/list sessions |
+| `/sessions/{id}` | GET/PUT/DELETE | Session CRUD |
+| `/sessions/{id}/messages` | POST/GET | Messages CRUD |
 
 ## Project Structure
 
 ```
 matrix-agent/
-├── main.py               # CLI entry point
-├── pyproject.toml
+├── main.py               # FastAPI + CLI entry point
+├── Dockerfile            # Container config
+├── railway.toml          # Railway deployment config
+├── mcp.json              # MCP servers config
 ├── agents/
-│   ├── __init__.py
-│   └── coordinator.py    # Main coordinator + specialists
+│   ├── coordinator.py    # Main coordinator + specialists
+│   └── browser_agent.py  # CDP browser automation
 └── tools/
-    ├── __init__.py
     ├── code_tools.py     # Web development tools
     ├── ppt_tools.py      # Presentation tools
     ├── research_tools.py # Research & analysis tools
-    └── multimodal_tools.py # Media processing tools
+    ├── multimodal_tools.py # Media processing tools
+    └── chrome_devtools_tools.py # Browser automation
+```
+
+## MCP Servers
+
+```json
+{
+  "mcpServers": {
+    "chrome-devtools": { "command": "npx", "args": ["chrome-devtools-mcp@latest"] },
+    "playwright": { "command": "npx", "args": ["@playwright/mcp@latest"] },
+    "railway": { "command": "npx", "args": ["-y", "@railway/mcp-server"] }
+  }
+}
 ```
 
 ## License
