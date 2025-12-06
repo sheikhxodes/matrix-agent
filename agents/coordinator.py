@@ -23,6 +23,14 @@ from tools.multimodal_tools import (
     analyze_image, transcribe_audio, analyze_video, parse_document,
     generate_image, generate_audio, generate_video
 )
+from tools.chrome_devtools_tools import (
+    click, drag, fill, fill_form, handle_dialog, hover, press_key, upload_file,
+    close_page, list_pages, navigate_page, new_page, select_page, wait_for,
+    emulate, resize_page,
+    performance_analyze_insight, performance_start_trace, performance_stop_trace,
+    get_network_request, list_network_requests,
+    evaluate_script, get_console_message, list_console_messages, take_screenshot, take_snapshot
+)
 
 
 THINKING_INSTRUCTION = """
@@ -205,6 +213,71 @@ Prioritize: accuracy, quality, appropriate format selection.""",
     ],
 )
 
+browser_agent = LlmAgent(
+    name="browser_agent",
+    model="gemini-2.0-flash",
+    description="Browser automation via Chrome DevTools Protocol: Navigation, interaction, screenshots, performance tracing, network monitoring.",
+    instruction=THINKING_INSTRUCTION + """
+You are a browser automation specialist using Chrome DevTools Protocol (CDP) via Playwright.
+
+## Input Capabilities:
+- Click, drag, fill forms, handle dialogs
+- Hover, press keys, upload files
+- Navigate pages, manage tabs
+- Wait for elements/navigation
+
+## Emulation & Viewport:
+- Device emulation (mobile, tablet, desktop)
+- Viewport resizing
+
+## Performance & Debugging:
+- Performance tracing and analysis
+- Network request monitoring
+- Console message capture
+- JavaScript evaluation
+
+## Capture:
+- Screenshots (full page, element, viewport)
+- DOM snapshots
+
+## Workflow:
+1. <think> Plan browser automation sequence </think>
+2. Navigate to target page
+3. Perform interactions
+4. Capture results/screenshots
+5. Analyze performance if needed
+
+Prioritize: reliability, error handling, comprehensive capture.""",
+    tools=[
+        FunctionTool(click),
+        FunctionTool(drag),
+        FunctionTool(fill),
+        FunctionTool(fill_form),
+        FunctionTool(handle_dialog),
+        FunctionTool(hover),
+        FunctionTool(press_key),
+        FunctionTool(upload_file),
+        FunctionTool(close_page),
+        FunctionTool(list_pages),
+        FunctionTool(navigate_page),
+        FunctionTool(new_page),
+        FunctionTool(select_page),
+        FunctionTool(wait_for),
+        FunctionTool(emulate),
+        FunctionTool(resize_page),
+        FunctionTool(performance_analyze_insight),
+        FunctionTool(performance_start_trace),
+        FunctionTool(performance_stop_trace),
+        FunctionTool(get_network_request),
+        FunctionTool(list_network_requests),
+        FunctionTool(evaluate_script),
+        FunctionTool(get_console_message),
+        FunctionTool(list_console_messages),
+        FunctionTool(take_screenshot),
+        FunctionTool(take_snapshot),
+    ],
+)
+
 planner_agent = LlmAgent(
     name="planner_agent",
     model="gemini-2.0-flash",
@@ -222,6 +295,7 @@ Create execution plans with dependencies and priorities.
 - ppt_agent: Presentations and slides
 - research_agent: Information gathering and analysis
 - multimodal_agent: Image/audio/video processing
+- browser_agent: Browser automation, screenshots, performance
 
 ## Planning Process:
 1. <think>
@@ -243,7 +317,7 @@ coordinator_agent = LlmAgent(
     name="matrix_coordinator",
     model="gemini-2.0-flash",
     description="""General-purpose agent for complex, long-horizon tasks. 
-    Coordinates specialists: Code, PPT, Research, Multimodal. 
+    Coordinates specialists: Code, PPT, Research, Multimodal, Browser. 
     Uses multi-step planning with interleaved thinking.""",
     instruction=THINKING_INSTRUCTION + """
 You are Matrix Agent, a general-purpose AI capable of completing complex, long-horizon tasks.
@@ -253,19 +327,21 @@ You are Matrix Agent, a general-purpose AI capable of completing complex, long-h
 2. **PPT**: Beautiful presentations with flexible layouts and PPTX export
 3. **Deep Research**: Web search, APIs, browser, data analysis, reports
 4. **Multimodal**: Image/audio/video input understanding and generation
-5. **MCP Integration**: Access to external tools and services
+5. **Browser**: Automation, screenshots, performance tracing, network monitoring
+6. **MCP Integration**: Access to external tools and services
 
 ## Your Specialist Team:
 - `code_agent`: Web development tasks
 - `ppt_agent`: Presentation creation
 - `research_agent`: Research and analysis
 - `multimodal_agent`: Media processing
+- `browser_agent`: Browser automation and testing
 - `planner_agent`: Complex task decomposition
 
 ## Decision Process:
 For every request:
 <think>
-1. What type of task is this? (code, ppt, research, multimodal, mixed)
+1. What type of task is this? (code, ppt, research, multimodal, browser, mixed)
 2. Is it simple (single agent) or complex (multi-agent coordination)?
 3. What's the execution plan?
 4. Which agents should I delegate to?
@@ -289,5 +365,6 @@ For every request:
         ppt_agent,
         research_agent,
         multimodal_agent,
+        browser_agent,
     ],
 )
