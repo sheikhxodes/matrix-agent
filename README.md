@@ -13,6 +13,8 @@
 
 <br>
 
+[![Live Demo](https://img.shields.io/badge/Live-matrix--agent--production.up.railway.app-E31937?style=flat-square)](https://matrix-agent-production.up.railway.app)
+&nbsp;&nbsp;
 [![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/template/new?template=https://github.com/sheikhxodes/matrix-agent)
 &nbsp;&nbsp;
 [![Documentation](https://img.shields.io/badge/docs-MkDocs-blue?style=flat-square)](https://sheikhxodes.github.io/matrix-agent)
@@ -21,9 +23,21 @@
 
 <br>
 
-[Features](#features) • [Quick Start](#quick-start) • [API Reference](#api-reference) • [Documentation](https://sheikhxodes.github.io/matrix-agent)
+[Features](#features) • [Quick Start](#quick-start) • [API Reference](#api-reference) • [Live Demo](https://matrix-agent-production.up.railway.app)
 
 </div>
+
+---
+
+## 🌐 Live API
+
+**Base URL:** `https://matrix-agent-production.up.railway.app`
+
+| Endpoint | Description |
+|----------|-------------|
+| [/health](https://matrix-agent-production.up.railway.app/health) | Health check |
+| [/v1/models](https://matrix-agent-production.up.railway.app/v1/models) | List models |
+| [/docs](https://matrix-agent-production.up.railway.app/docs) | Swagger UI |
 
 ---
 
@@ -104,7 +118,7 @@ uvicorn main:app --reload
 ### Anthropic Messages API (Recommended)
 
 ```bash
-curl -X POST http://localhost:8000/anthropic/v1/messages \
+curl -X POST https://matrix-agent-production.up.railway.app/anthropic/v1/messages \
   -H "Content-Type: application/json" \
   -H "anthropic-version: 2024-01-01" \
   -d '{
@@ -119,7 +133,7 @@ curl -X POST http://localhost:8000/anthropic/v1/messages \
 ### OpenAI Chat Completions
 
 ```bash
-curl -X POST http://localhost:8000/v1/chat/completions \
+curl -X POST https://matrix-agent-production.up.railway.app/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
     "model": "matrix-agent",
@@ -130,13 +144,21 @@ curl -X POST http://localhost:8000/v1/chat/completions \
 ### Code Assistant
 
 ```bash
-curl -X POST http://localhost:8000/v1/code \
+curl -X POST https://matrix-agent-production.up.railway.app/v1/code \
   -H "Content-Type: application/json" \
   -d '{
     "code": "def factorial(n): return 1 if n <= 1 else n * factorial(n-1)",
     "task": "explain",
     "language": "python"
   }'
+```
+
+### Quick Chat
+
+```bash
+curl -X POST https://matrix-agent-production.up.railway.app/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Hello Matrix Agent!"}'
 ```
 
 <br>
