@@ -1,0 +1,17 @@
+[project]
+name = "matrix-agent"
+version = "0.1.0"
+description = "General-purpose AI agent with multi-step planning and interleaved thinking"
+requires-python = ">=3.11"
+dependencies = [
+    "google-adk>=1.0.0",
+    "google-genai>=1.0.0",
+    "fastapi>=0.100.0",
+    "uvicorn[standard]>=0.20.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "pytest-asyncio", "ruff"]
+
+[tool.ruff]
+line-length = 100
